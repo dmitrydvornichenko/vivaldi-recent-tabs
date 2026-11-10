@@ -2,6 +2,8 @@
 
 Vivaldi mod that marks your recently used tabs, Opera-style: each tab fills up like a gauge, and the fill level shows how long ago it was active.
 
+![Recently used tabs marked with fill levels](docs/example.png)
+
 With dozens of tabs open it's easy to lose the one you were just on. This mod fills the last tabs you visited (4 by default, [configurable](#number-of-marked-tabs)) from the bottom up. The fill level shows the order:
 
 | Tab                    | Fill |
