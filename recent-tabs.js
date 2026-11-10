@@ -2,19 +2,26 @@
 // https://github.com/dmitrydvornichenko/vivaldi-recent-tabs
 // MIT License
 //
-// A circle behind the favicon of each recently used tab is filled from the
-// bottom: the more recently the tab was active, the higher the fill level.
+// Each recently used tab is filled from the bottom like a gauge:
+// the more recently the tab was active, the higher the fill level.
 (function () {
   // ---- Settings -------------------------------------------------------------
   // Fill color: theme highlight color by default; any CSS color works too, e.g. '#2070AE'
   const COLOR       = 'var(--colorHighlightBg, #2070AE)';
-  const ALPHA       = 0.7;                 // opacity of the filled part (0..1)
-  const EMPTY_ALPHA = 0.2;                 // opacity of the unfilled part (0 = transparent)
-  const SIZE        = 33;                  // circle diameter, px (favicon is ~16px)
+  const ALPHA       = 0.25;                // opacity of the filled part (0..1)
+  const EMPTY_ALPHA = 0;                   // opacity of the unfilled part (0 = transparent)
+  const RING_ALPHA  = 0.5;                 // opacity of the outline (0..1)
+  const SOFT        = 10;                  // blur of the fill edge, % of tab height (0 = sharp)
   const RING        = 2;                   // outline width, px (0 = no outline)
-  const HEIGHTS     = [100, 75, 50, 25];   // fill level, %; one entry per highlighted tab
+  const COUNT       = 4;                   // how many recent tabs to mark
+  // Fill levels, %: evenly spaced by default (COUNT = 4 gives 100, 75, 50, 25).
+  // Set your own list to override, e.g. [100, 60, 30]; its length then replaces COUNT.
+  const LEVELS      = null;
   // ---------------------------------------------------------------------------
 
+  const HEIGHTS = Array.isArray(LEVELS) && LEVELS.length
+    ? LEVELS
+    : Array.from({ length: Math.max(1, COUNT) }, (_, i) => Math.round(100 * (COUNT - i) / COUNT));
   const DEPTH = HEIGHTS.length;
   const tint  = a => `color-mix(in srgb, ${COLOR} ${a * 100}%, transparent)`;
 
@@ -31,17 +38,28 @@
     style.id = 'recent-tabs-glow';
     document.head.appendChild(style);
 
+    // The id sits on .tab-wrapper, but the rounded shape is drawn by the .tab inside it.
+    function radius(id) {
+      const tab = document.querySelector(`#tab-${id} .tab`);
+      return tab ? getComputedStyle(tab).borderRadius : '0px';
+    }
+
     function render() {
-      style.textContent = history.slice(1, DEPTH + 1).map((id, i) => `
-#tab-${id}-favicon { position: relative; z-index: 0; overflow: visible !important; }
-#tab-${id}-favicon::before {
-  content: ''; position: absolute; left: 50%; top: 50%;
-  width: ${SIZE}px; height: ${SIZE}px; transform: translate(-50%, -50%);
-  box-sizing: border-box; border-radius: 50%;
-  border: ${RING}px solid ${tint(ALPHA)};
-  background: linear-gradient(to top, ${tint(ALPHA)} ${HEIGHTS[i]}%, ${tint(EMPTY_ALPHA)} ${HEIGHTS[i]}%);
-  pointer-events: none; z-index: -1;
-}`).join('\n');
+      style.textContent = history.slice(1, DEPTH + 1).map((id, i) => {
+        // A full tab is filled solid: a soft edge at 100% would fade out the top strip.
+        const full = HEIGHTS[i] >= 100;
+        const lo = full ? 100 : Math.max(HEIGHTS[i] - SOFT, 0);
+        const hi = full ? 100 : Math.min(HEIGHTS[i] + SOFT, 100);
+        return `
+#tab-${id} { position: relative; }
+#tab-${id}::after {
+  content: ''; position: absolute; inset: 0;
+  box-sizing: border-box; border-radius: ${radius(id)};
+  border: ${RING}px solid ${tint(RING_ALPHA)};
+  background: linear-gradient(to top, ${tint(ALPHA)} ${lo}%, ${tint(EMPTY_ALPHA)} ${hi}%);
+  pointer-events: none; z-index: 5;
+}`;
+      }).join('\n');
     }
 
     function touch(id) {
